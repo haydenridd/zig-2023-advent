@@ -97,86 +97,67 @@ fn validMovementDirection(curr: u8, next: u8, direction: Direction) bool {
     }
 }
 
-const PossibleNextMovement = struct {
-    n: bool,
-    e: bool,
-    s: bool,
-    w: bool,
+pub fn possibleMovementDirections(matrix: [][]const u8, location: Coordinate, previous_dir: ?Direction) !std.BoundedArray(Direction, 4) {
+    var possible_directions = try std.BoundedArray(Direction, 4).init(0);
 
-    pub fn fromLocation(matrix: [][]const u8, location: Coordinate, previous_dir: ?Direction) PossibleNextMovement {
-        var possible_movement: PossibleNextMovement = .{ .n = true, .e = true, .s = true, .w = true };
+    // Map boundary conditions, then movement checks
+    const curr_char = matrix[location.y][location.x];
+    const x_max_coord = matrix[0].len - 1;
+    const y_max_coord = matrix.len - 1;
 
-        // Map boundary conditions, then movement checks
-        const curr_char = matrix[location.y][location.x];
-        const x_max_coord = matrix[0].len - 1;
-        const y_max_coord = matrix.len - 1;
+    const Dirs = struct { n: bool = true, e: bool = true, s: bool = true, w: bool = true };
+    var valid_dirs = Dirs{};
 
-        if (previous_dir) |dir| {
-            switch (dir) {
-                .N => {
-                    possible_movement.s = false;
-                },
-                .E => {
-                    possible_movement.w = false;
-                },
-                .S => {
-                    possible_movement.n = false;
-                },
-                .W => {
-                    possible_movement.e = false;
-                },
-            }
+    if (previous_dir) |dir| {
+        switch (dir) {
+            .N => {
+                valid_dirs.s = false;
+            },
+            .E => {
+                valid_dirs.w = false;
+            },
+            .S => {
+                valid_dirs.n = false;
+            },
+            .W => {
+                valid_dirs.e = false;
+            },
         }
-
-        if (location.x == 0) {
-            possible_movement.w = false;
-        } else if (!validMovementDirection(curr_char, matrix[location.y][location.x - 1], .W)) {
-            possible_movement.w = false;
-        }
-
-        if (location.x == x_max_coord) {
-            possible_movement.e = false;
-        } else if (!validMovementDirection(curr_char, matrix[location.y][location.x + 1], .E)) {
-            possible_movement.e = false;
-        }
-
-        if (location.y == 0) {
-            possible_movement.n = false;
-        } else if (!validMovementDirection(curr_char, matrix[location.y - 1][location.x], .N)) {
-            possible_movement.n = false;
-        }
-
-        if (location.y == y_max_coord) {
-            possible_movement.s = false;
-        } else if (!validMovementDirection(curr_char, matrix[location.y + 1][location.x], .S)) {
-            possible_movement.s = false;
-        }
-
-        return possible_movement;
     }
 
-    pub fn numValidDirs(self: PossibleNextMovement) u8 {
-        var num_dirs: u8 = 0;
-        if (self.n) num_dirs += 1;
-        if (self.s) num_dirs += 1;
-        if (self.e) num_dirs += 1;
-        if (self.w) num_dirs += 1;
-        return num_dirs;
+    if (location.x == 0) {
+        valid_dirs.w = false;
+    } else if (!validMovementDirection(curr_char, matrix[location.y][location.x - 1], .W)) {
+        valid_dirs.w = false;
     }
 
-    pub fn firstValidDir(self: PossibleNextMovement) ?Direction {
-        if (self.n) return .N;
-        if (self.s) return .S;
-        if (self.e) return .E;
-        if (self.w) return .W;
-        return null;
+    if (location.x == x_max_coord) {
+        valid_dirs.e = false;
+    } else if (!validMovementDirection(curr_char, matrix[location.y][location.x + 1], .E)) {
+        valid_dirs.e = false;
     }
-};
+
+    if (location.y == 0) {
+        valid_dirs.n = false;
+    } else if (!validMovementDirection(curr_char, matrix[location.y - 1][location.x], .N)) {
+        valid_dirs.n = false;
+    }
+
+    if (location.y == y_max_coord) {
+        valid_dirs.s = false;
+    } else if (!validMovementDirection(curr_char, matrix[location.y + 1][location.x], .S)) {
+        valid_dirs.s = false;
+    }
+    if (valid_dirs.n) try possible_directions.append(.N);
+    if (valid_dirs.e) try possible_directions.append(.E);
+    if (valid_dirs.s) try possible_directions.append(.S);
+    if (valid_dirs.w) try possible_directions.append(.W);
+    return possible_directions;
+}
 
 const Map = struct {
     allocator: std.mem.Allocator,
     start: Coordinate,
-
     matrix: [][]const u8,
 
     pub fn initFromPuzzleInput(allocator: std.mem.Allocator) !Map {
@@ -209,7 +190,7 @@ const Map = struct {
             y += 1;
         }
         const matrix_slice = try matrix.toOwnedSlice();
-        return Map{ .allocator = allocator, .start = start_coord, .current = start_coord, .previous_dir = null, .current_possible_movement = PossibleNextMovement.fromLocation(matrix_slice, start_coord, null), .matrix = matrix_slice };
+        return Map{ .allocator = allocator, .start = start_coord, .matrix = matrix_slice };
     }
 
     pub fn deinit(self: *Map) void {
@@ -218,52 +199,85 @@ const Map = struct {
         }
         self.allocator.free(self.matrix);
     }
+
+    pub fn potentialPathFinderStarts(self: Map) !std.BoundedArray(Coordinate, 4) {
+        var ret_coords = try std.BoundedArray(Coordinate, 4).init(0);
+        const possible_movements = try possibleMovementDirections(self.matrix, self.start, null);
+        for (possible_movements.slice()) |direction| {
+            switch (direction) {
+                .N => {
+                    // Bound sanity checks
+                    if (self.start.y == 0) return MyErrors.UnexpectedFormat;
+                    try ret_coords.append(Coordinate{ .x = self.start.x, .y = self.start.y - 1 });
+                },
+                .E => {
+                    // Bound sanity checks
+                    if (self.start.x == self.matrix[0].len - 1) return MyErrors.UnexpectedFormat;
+                    try ret_coords.append(Coordinate{ .x = self.start.x + 1, .y = self.start.y });
+                },
+                .S => {
+                    // Bound sanity checks
+                    if (self.start.y == self.matrix.len - 1) return MyErrors.UnexpectedFormat;
+                    try ret_coords.append(Coordinate{ .x = self.start.x, .y = self.start.y + 1 });
+                },
+                .W => {
+                    // Bound sanity checks
+                    if (self.start.x == 0) return MyErrors.UnexpectedFormat;
+                    try ret_coords.append(Coordinate{ .x = self.start.x - 1, .y = self.start.y });
+                },
+            }
+        }
+        return ret_coords;
+    }
 };
+
+const PathFinderErrors = error{ MoreThanOneValidMove, NoValidMoves };
 
 const PathFinder = struct {
     current: Coordinate,
-    previous_dir: ?Direction,
-    current_possible_movement: PossibleNextMovement,
+    map_matrix: [][]const u8,
+    previous_dir: ?Direction = null,
 
-    pub fn touchingStart(self: Map) bool {
+    pub fn touchingStart(self: PathFinder) bool {
         if (self.current.x == 0) {
-            if (self.matrix[self.current.y][self.current.x + 1] == 'S') {
+            if (self.map_matrix[self.current.y][self.current.x + 1] == 'S') {
                 return true;
             }
-        } else if (self.current.x == self.matrix[0].len - 1) {
-            if (self.matrix[self.current.y][self.current.x - 1] == 'S') {
+        } else if (self.current.x == self.map_matrix[0].len - 1) {
+            if (self.map_matrix[self.current.y][self.current.x - 1] == 'S') {
                 return true;
             }
         } else {
-            if ((self.matrix[self.current.y][self.current.x + 1] == 'S') or (self.matrix[self.current.y][self.current.x - 1] == 'S')) {
+            if ((self.map_matrix[self.current.y][self.current.x + 1] == 'S') or (self.map_matrix[self.current.y][self.current.x - 1] == 'S')) {
                 return true;
             }
         }
 
         if (self.current.y == 0) {
-            if (self.matrix[self.current.y + 1][self.current.x] == 'S') {
+            if (self.map_matrix[self.current.y + 1][self.current.x] == 'S') {
                 return true;
             }
-        } else if (self.current.y == self.matrix.len - 1) {
-            if (self.matrix[self.current.y - 1][self.current.x] == 'S') {
+        } else if (self.current.y == self.map_matrix.len - 1) {
+            if (self.map_matrix[self.current.y - 1][self.current.x] == 'S') {
                 return true;
             }
         } else {
-            if ((self.matrix[self.current.y + 1][self.current.x] == 'S') or (self.matrix[self.current.y - 1][self.current.x] == 'S')) {
+            if ((self.map_matrix[self.current.y + 1][self.current.x] == 'S') or (self.map_matrix[self.current.y - 1][self.current.x] == 'S')) {
                 return true;
             }
         }
         return false;
     }
 
-    pub fn resetToStart(self: *Map) void {
-        self.current.x = self.start.x;
-        self.current.y = self.start.y;
-        self.previous_dir = null;
-        self.current_possible_movement = PossibleNextMovement.fromLocation(self.matrix, self.current, self.previous_dir);
-    }
+    pub fn traverse(self: *PathFinder) !void {
+        const possible_movements = try possibleMovementDirections(self.map_matrix, self.current, self.previous_dir);
+        if (possible_movements.len > 1) {
+            return PathFinderErrors.MoreThanOneValidMove;
+        } else if (possible_movements.len == 0) {
+            return PathFinderErrors.NoValidMoves;
+        }
 
-    pub fn traverse(self: *Map, direction: Direction) void {
+        const direction = possible_movements.slice()[0];
         switch (direction) {
             .N => {
                 // Bound sanity checks
@@ -272,12 +286,12 @@ const PathFinder = struct {
             },
             .E => {
                 // Bound sanity checks
-                if (self.current.x == self.matrix[0].len - 1) unreachable;
+                if (self.current.x == self.map_matrix[0].len - 1) unreachable;
                 self.current.x += 1;
             },
             .S => {
                 // Bound sanity checks
-                if (self.current.y == self.matrix.len - 1) unreachable;
+                if (self.current.y == self.map_matrix.len - 1) unreachable;
                 self.current.y += 1;
             },
             .W => {
@@ -287,7 +301,6 @@ const PathFinder = struct {
             },
         }
         self.previous_dir = direction;
-        self.current_possible_movement = PossibleNextMovement.fromLocation(self.matrix, self.current, self.previous_dir);
     }
 };
 
@@ -297,39 +310,33 @@ fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
     var map = try Map.initFromPuzzleInput(allocator);
     defer map.deinit();
 
-    const debug_print = false;
+    const debug_print = true;
 
     // Collect possible starting directions and try each
-    if (debug_print) std.debug.print("Start: {any}\n", .{map.start});
-    if (debug_print) std.debug.print("Possible Starting Moves: {any}\n", .{map.current_possible_movement});
-    var possible_dirs = try std.BoundedArray(Direction, 4).init(0);
-    if (map.current_possible_movement.n) try possible_dirs.append(.N);
-    if (map.current_possible_movement.e) try possible_dirs.append(.E);
-    if (map.current_possible_movement.s) try possible_dirs.append(.S);
-    if (map.current_possible_movement.w) try possible_dirs.append(.W);
+    const potential_start_positions = try map.potentialPathFinderStarts();
+    if (debug_print) std.debug.print("Possible Starting Positions: {any}\n", .{potential_start_positions});
 
-    for (possible_dirs.slice()) |dir_to_start_with| {
-        var curr_dir: ?Direction = dir_to_start_with;
-        var move_count: usize = 0;
-        while (map.current_possible_movement.numValidDirs() > 0) {
-            map.traverse(curr_dir.?);
+    for (potential_start_positions.slice()) |start_position| {
+        var move_count: usize = 1; // Account for first "move" from start
+        var path_finder = PathFinder{ .current = start_position, .map_matrix = map.matrix };
+        while (path_finder.traverse()) {
             move_count += 1;
-            if (debug_print) std.debug.print("Moved {any} to {any}\n", .{ curr_dir.?, map.current });
-            if (map.current_possible_movement.numValidDirs() > 1) {
-                std.debug.panic("Something has gone hideously wrong!, current coord: {any}, movement: {any}\n", .{ map.current, map.current_possible_movement });
+            if (debug_print) std.debug.print("Moved {any} to {any}\n", .{ path_finder.previous_dir.?, path_finder.current });
+        } else |err| {
+            switch (err) {
+                PathFinderErrors.NoValidMoves => {},
+                else => return err,
             }
-            curr_dir = map.current_possible_movement.firstValidDir();
         }
-        if (debug_print) std.debug.print("Finished traversal at point: {any}\n", .{map.current});
+        if (debug_print) std.debug.print("Finished traversal at point: {any}\n", .{path_finder.current});
 
-        if (map.touchingStart()) {
+        if (path_finder.touchingStart()) {
             if (debug_print) std.debug.print("Hooray we found it! Total moves: {d}\n", .{move_count});
             answer = (move_count + 1) / 2;
             break;
         } else {
             if (debug_print) std.debug.print("Nah that aint it, let's try again\n", .{});
         }
-        map.resetToStart();
     }
     return .{ answer, answer2 };
 }
