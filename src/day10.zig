@@ -237,27 +237,22 @@ const PathFinder = struct {
     allocator: std.mem.Allocator,
     current: Coordinate,
     map_matrix: [][]const u8,
-    path_taken: std.ArrayList(Coordinate),
-    dir_chars: std.ArrayList(u8),
+    path_vertices: std.ArrayList(Coordinate),
     previous_dir: ?Direction = null,
 
     pub fn init(allocator: std.mem.Allocator, map: Map, pathfinder_start: Coordinate) !PathFinder {
-        var path_taken = std.ArrayList(Coordinate).init(allocator);
-        try path_taken.append(map.start);
-        var dir_chars = std.ArrayList(u8).init(allocator);
-        try dir_chars.append('S');
+        var path_vertices = std.ArrayList(Coordinate).init(allocator);
+        try path_vertices.append(map.start); // Starting coordinate is always going to be a vertex
         return .{
             .allocator = allocator,
             .current = pathfinder_start,
             .map_matrix = map.matrix,
-            .path_taken = path_taken,
-            .dir_chars = dir_chars,
+            .path_vertices = path_vertices,
         };
     }
 
     pub fn deinit(self: *PathFinder) void {
-        self.path_taken.deinit();
-        self.dir_chars.deinit();
+        self.path_vertices.deinit();
     }
 
     pub fn touchingStart(self: PathFinder) bool {
@@ -292,168 +287,89 @@ const PathFinder = struct {
     }
 
     pub fn traverse(self: *PathFinder) !void {
-        try self.path_taken.append(self.current);
         const possible_movements = try possibleMovementDirections(self.map_matrix, self.current, self.previous_dir);
         if (possible_movements.len > 1) {
-            try self.dir_chars.append('X');
             return PathFinderErrors.MoreThanOneValidMove;
         } else if (possible_movements.len == 0) {
-            try self.dir_chars.append('X');
             return PathFinderErrors.NoValidMoves;
         }
 
         const direction = possible_movements.slice()[0];
+
+        // A change in direction indicates a vertex
+        if (self.previous_dir) |pdir| {
+            if (pdir != direction) {
+                try self.path_vertices.append(self.current);
+            }
+        } else {
+            try self.path_vertices.append(self.current);
+        }
+
         switch (direction) {
             .N => {
                 // Bound sanity checks
                 if (self.current.y == 0) unreachable;
                 self.current.y -= 1;
-                try self.dir_chars.append('^');
             },
             .E => {
                 // Bound sanity checks
                 if (self.current.x == self.map_matrix[0].len - 1) unreachable;
                 self.current.x += 1;
-                try self.dir_chars.append('>');
             },
             .S => {
                 // Bound sanity checks
                 if (self.current.y == self.map_matrix.len - 1) unreachable;
                 self.current.y += 1;
-                try self.dir_chars.append('v');
             },
             .W => {
                 // Bound sanity checks
                 if (self.current.x == 0) unreachable;
                 self.current.x -= 1;
-                try self.dir_chars.append('<');
             },
         }
         self.previous_dir = direction;
     }
 };
 
-/// Checks if a coordinate is enclosed by a "loop" of coordinates by raycasting in each cardinal direction
-/// and checking the number of intersections. For a point to be enclosed, it must intersect the loop at
-/// least once in each possible direction, AND at least one intersection must be odd.
-fn coordinateIsEnclosedByLoop(coordinate: Coordinate, loop: []const Coordinate) bool {
-    if (isInLoop(coordinate, loop)) {
-        return false;
-    }
-
-    var odd_count: usize = 0;
-    // Check intersections casting a ray North
+/// Implementation of the Point-In-Polygon algorithm using ray casting:
+/// https://sszczep.dev/blog/ray-casting-in-2d-game-engines#:~:text=Point%2Din%2Dpolygon%20problem&text=Using%20the%20ray%20casting%20algorithm,polygon%20or%20on%20its%20boundary.
+fn coordinateIsEnclosedByLoop(coordinate: Coordinate, vertices: []const Coordinate) bool {
     var intersection_count: usize = 0;
-    for (loop) |loop_coord| {
-        if ((loop_coord.x == coordinate.x) and (loop_coord.y < coordinate.y)) {
+
+    // Special hack, if point has NO points left, it can't be inside!
+    var has_something_left = false;
+
+    for (0..vertices.len) |i| {
+        const vertex1 = vertices[i];
+        const vertex2 = vertices[(i + 1) % vertices.len];
+
+        // If it's in the edge, don't include it
+        if ((coordinate.x >= @min(vertex1.x, vertex2.x)) and (coordinate.x <= @max(vertex1.x, vertex2.x)) and (coordinate.y >= @min(vertex1.y, vertex2.y)) and (coordinate.y <= @max(vertex1.y, vertex2.y))) {
+            return false;
+        }
+
+        if ((vertex1.x == vertex2.x) and (coordinate.y > @min(vertex1.y, vertex2.y)) and (coordinate.y <= @max(vertex1.y, vertex2.y)) and (coordinate.x < vertex1.x)) {
+            // Edge is vertical and our pt is left of edge
             intersection_count += 1;
         }
-    }
-    if (intersection_count == 0) {
-        return false;
-    } else if (@mod(intersection_count, 2) != 0) {
-        odd_count += 1;
-    }
 
-    // North-East
-    intersection_count = 0;
-    for (loop) |loop_coord| {
-        if ((loop_coord.x > coordinate.x) and (loop_coord.y < coordinate.y) and ((coordinate.y - loop_coord.y) == (loop_coord.x - coordinate.x))) {
-            intersection_count += 1;
+        if ((coordinate.y >= @min(vertex1.y, vertex2.y)) and (coordinate.y <= @max(vertex1.y, vertex2.y)) and (coordinate.x > vertex1.x)) {
+            has_something_left = true;
         }
     }
-    if (intersection_count == 0) {
+
+    if (!has_something_left) {
         return false;
-    } else if (@mod(intersection_count, 2) != 0) {
-        odd_count += 1;
     }
 
-    // East
-    intersection_count = 0;
-    for (loop) |loop_coord| {
-        if ((loop_coord.y == coordinate.y) and (loop_coord.x > coordinate.x)) {
-            intersection_count += 1;
-        }
-    }
-    if (intersection_count == 0) {
-        return false;
-    } else if (@mod(intersection_count, 2) != 0) {
-        odd_count += 1;
-    }
-
-    // South-East
-    intersection_count = 0;
-    for (loop) |loop_coord| {
-        if ((loop_coord.x > coordinate.x) and (loop_coord.y > coordinate.y) and ((loop_coord.y - coordinate.y) == (loop_coord.x - coordinate.x))) {
-            intersection_count += 1;
-        }
-    }
-    if (intersection_count == 0) {
-        return false;
-    } else if (@mod(intersection_count, 2) != 0) {
-        odd_count += 1;
-    }
-
-    // South
-    intersection_count = 0;
-    for (loop) |loop_coord| {
-        if ((loop_coord.x == coordinate.x) and (loop_coord.y > coordinate.y)) {
-            intersection_count += 1;
-        }
-    }
-    if (intersection_count == 0) {
-        return false;
-    } else if (@mod(intersection_count, 2) != 0) {
-        odd_count += 1;
-    }
-
-    // South-West
-    intersection_count = 0;
-    for (loop) |loop_coord| {
-        if ((loop_coord.x < coordinate.x) and (loop_coord.y > coordinate.y) and ((loop_coord.y - coordinate.y) == (coordinate.x - loop_coord.x))) {
-            intersection_count += 1;
-        }
-    }
-    if (intersection_count == 0) {
-        return false;
-    } else if (@mod(intersection_count, 2) != 0) {
-        odd_count += 1;
-    }
-
-    // West
-    intersection_count = 0;
-    for (loop) |loop_coord| {
-        if ((loop_coord.y == coordinate.y) and (loop_coord.x < coordinate.x)) {
-            intersection_count += 1;
-        }
-    }
-    if (intersection_count == 0) {
-        return false;
-    } else if (@mod(intersection_count, 2) != 0) {
-        odd_count += 1;
-    }
-
-    // North-West
-    intersection_count = 0;
-    for (loop) |loop_coord| {
-        if ((loop_coord.x < coordinate.x) and (loop_coord.y < coordinate.y) and ((coordinate.y - loop_coord.y) == (coordinate.x - loop_coord.x))) {
-            intersection_count += 1;
-        }
-    }
-    if (intersection_count == 0) {
-        return false;
-    } else if (@mod(intersection_count, 2) != 0) {
-        odd_count += 1;
-    }
-
-    return odd_count > 0;
+    return @mod(intersection_count, 2) != 0;
 }
 
-fn areaEnclosedByLoop(loop: []const Coordinate, map_matrix: [][]const u8) usize {
+fn areaEnclosedByLoop(vertices: []const Coordinate, map_matrix: [][]const u8) usize {
     var enclosed_count: usize = 0;
     for (map_matrix, 0..) |row, y| {
         for (row, 0..) |_, x| {
-            if (coordinateIsEnclosedByLoop(.{ .x = x, .y = y }, loop)) {
+            if (coordinateIsEnclosedByLoop(.{ .x = x, .y = y }, vertices)) {
                 enclosed_count += 1;
             }
         }
@@ -461,69 +377,18 @@ fn areaEnclosedByLoop(loop: []const Coordinate, map_matrix: [][]const u8) usize 
     return enclosed_count;
 }
 
-fn isInLoop(coordinate: Coordinate, loop: []const Coordinate) bool {
-    for (loop) |loop_coord| {
-        if ((loop_coord.x == coordinate.x) and (loop_coord.y == coordinate.y)) {
-            return true;
-        }
-    }
-    return false;
-}
+const PrintMethod = enum { Default };
 
-fn dirCharFromLoop(coordinate: Coordinate, loop: []const Coordinate, loop_chars: []const u8) u8 {
-    for (loop, loop_chars) |loop_coord, c| {
-        if ((loop_coord.x == coordinate.x) and (loop_coord.y == coordinate.y)) {
-            return c;
-        }
-    }
-    unreachable;
-}
-
-const PrintMethod = enum {
-    NoAnnotation,
-    InAndOut,
-    JustIn,
-    DirectionalPath,
-};
-
-fn printMapWithAreaAnnotations(comptime print_method: PrintMethod, loop: []const Coordinate, loop_chars: []const u8, map_matrix: [][]const u8) void {
+fn printMapWithAreaAnnotations(comptime print_method: PrintMethod, vertices: []const Coordinate, map_matrix: [][]const u8) void {
     for (map_matrix, 0..) |row, y| {
         std.debug.print("\n", .{});
         for (row, 0..) |c, x| {
             switch (print_method) {
-                .NoAnnotation => std.debug.print("{c}", .{c}),
-                .InAndOut => {
-                    if (isInLoop(.{ .x = x, .y = y }, loop)) {
+                .Default => {
+                    if (coordinateIsEnclosedByLoop(.{ .x = x, .y = y }, vertices)) {
+                        std.debug.print("I", .{});
+                    } else {
                         std.debug.print("{c}", .{c});
-                    } else {
-                        if (coordinateIsEnclosedByLoop(.{ .x = x, .y = y }, loop)) {
-                            std.debug.print("I", .{});
-                        } else {
-                            std.debug.print("O", .{});
-                        }
-                    }
-                },
-                .JustIn => {
-                    if (isInLoop(.{ .x = x, .y = y }, loop)) {
-                        std.debug.print("{c}", .{c});
-                    } else {
-                        if (coordinateIsEnclosedByLoop(.{ .x = x, .y = y }, loop)) {
-                            std.debug.print("I", .{});
-                        } else {
-                            std.debug.print("{c}", .{c});
-                        }
-                    }
-                },
-                .DirectionalPath => {
-                    if (isInLoop(.{ .x = x, .y = y }, loop)) {
-                        const char = dirCharFromLoop(.{ .x = x, .y = y }, loop, loop_chars);
-                        std.debug.print("{c}", .{char});
-                    } else {
-                        if (coordinateIsEnclosedByLoop(.{ .x = x, .y = y }, loop)) {
-                            std.debug.print("I", .{});
-                        } else {
-                            std.debug.print(".", .{});
-                        }
                     }
                 },
             }
@@ -538,7 +403,7 @@ fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
     var map = try Map.initFromPuzzleInput(allocator);
     defer map.deinit();
 
-    const debug_print = true;
+    const debug_print = false;
 
     // Collect possible starting directions and try each
     const potential_start_positions = try map.potentialPathFinderStarts();
@@ -567,10 +432,9 @@ fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
         if (path_finder.touchingStart()) {
             if (debug_print) std.debug.print("Hooray we found it! Total moves: {d}\n", .{move_count});
             answer = (move_count + 1) / 2;
-
+            if (debug_print) printMapWithAreaAnnotations(.Default, path_finder.path_vertices.items, map.matrix);
             // Now that we have a valid "path", in part2 we need to calculate num of tiles enclosed by path
-            if (debug_print) printMapWithAreaAnnotations(.DirectionalPath, path_finder.path_taken.items, path_finder.dir_chars.items, map.matrix);
-            answer2 = areaEnclosedByLoop(path_finder.path_taken.items, map.matrix);
+            answer2 = areaEnclosedByLoop(path_finder.path_vertices.items, map.matrix);
             break;
         } else {
             if (debug_print) std.debug.print("Nah that aint it, let's try again\n", .{});
