@@ -1,7 +1,7 @@
 const std = @import("std");
 const helpers = @import("helpers");
 const FileLineReader = helpers.FileLineReader;
-const MyErrors = helpers.MyErrors;
+const GeneralErrors = helpers.GeneralErrors;
 const CubeDrawing = struct {
     red: usize,
     green: usize,
@@ -12,8 +12,8 @@ const CubeDrawing = struct {
         var comma_tok = std.mem.tokenizeScalar(u8, string, ',');
         while (comma_tok.next()) |draw_str| {
             var space_tok = std.mem.tokenizeAny(u8, draw_str, " ");
-            const draw_num = try std.fmt.parseInt(u8, space_tok.next() orelse return MyErrors.UnexpectedFormat, 10);
-            const color_str = space_tok.next() orelse return MyErrors.UnexpectedFormat;
+            const draw_num = try std.fmt.parseInt(u8, space_tok.next() orelse return GeneralErrors.UnexpectedFormat, 10);
+            const color_str = space_tok.next() orelse return GeneralErrors.UnexpectedFormat;
             if (std.mem.eql(u8, "red", color_str)) {
                 cd.red = draw_num;
             } else if (std.mem.eql(u8, "green", color_str)) {
@@ -21,7 +21,7 @@ const CubeDrawing = struct {
             } else if (std.mem.eql(u8, "blue", color_str)) {
                 cd.blue = draw_num;
             } else {
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             }
         }
         return cd;
@@ -48,11 +48,11 @@ const Game = struct {
 
         // Get Game ID
         var game_tok = std.mem.tokenizeSequence(u8, line, ": ");
-        const game_str = game_tok.next() orelse return MyErrors.UnexpectedFormat;
-        const drawings_str = game_tok.next() orelse return MyErrors.UnexpectedFormat;
+        const game_str = game_tok.next() orelse return GeneralErrors.UnexpectedFormat;
+        const drawings_str = game_tok.next() orelse return GeneralErrors.UnexpectedFormat;
         var game_str_tok = std.mem.tokenizeScalar(u8, game_str, ' ');
-        _ = game_str_tok.next() orelse return MyErrors.UnexpectedFormat;
-        const game_id = try std.fmt.parseInt(u8, game_str_tok.next() orelse return MyErrors.UnexpectedFormat, 10);
+        _ = game_str_tok.next() orelse return GeneralErrors.UnexpectedFormat;
+        const game_id = try std.fmt.parseInt(u8, game_str_tok.next() orelse return GeneralErrors.UnexpectedFormat, 10);
 
         // Get Drawings
         var drawings = std.ArrayList(CubeDrawing).init(allocator);

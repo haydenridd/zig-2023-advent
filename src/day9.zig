@@ -1,7 +1,7 @@
 const std = @import("std");
 const helpers = @import("helpers");
 const FileLineReader = helpers.FileLineReader;
-const MyErrors = helpers.MyErrors;
+const GeneralErrors = helpers.GeneralErrors;
 
 fn nextDataVector(line_reader: *FileLineReader) ?[]i64 {
     const ln = line_reader.next() orelse return null;

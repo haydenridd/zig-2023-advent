@@ -1,7 +1,7 @@
 const std = @import("std");
 const helpers = @import("helpers");
 const FileLineReader = helpers.FileLineReader;
-const MyErrors = helpers.MyErrors;
+const GeneralErrors = helpers.GeneralErrors;
 
 const RaceInfo = struct {
     time: u64,
@@ -32,12 +32,12 @@ fn raceInfo(allocator: std.mem.Allocator) ![4]RaceInfo {
         if (file_line_reader.next()) |line| {
             var num_iter = std.mem.tokenizeAny(u8, line, " ");
             _ = num_iter.next() orelse {
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             };
             var val_idx: usize = 0;
             while (num_iter.next()) |num_str| {
                 if (val_idx >= race_info_arr.len) {
-                    return MyErrors.UnexpectedFormat;
+                    return GeneralErrors.UnexpectedFormat;
                 }
                 if (i == 0) {
                     race_info_arr[val_idx].time = try std.fmt.parseInt(u64, num_str, 10);
@@ -47,7 +47,7 @@ fn raceInfo(allocator: std.mem.Allocator) ![4]RaceInfo {
                 val_idx += 1;
             }
         } else {
-            return MyErrors.UnexpectedFormat;
+            return GeneralErrors.UnexpectedFormat;
         }
     }
     return race_info_arr;
@@ -62,10 +62,10 @@ fn raceInfoPart2(allocator: std.mem.Allocator) !RaceInfo {
         if (file_line_reader.next()) |line| {
             var split_it = std.mem.splitScalar(u8, line, ':');
             _ = split_it.next() orelse {
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             };
             const nums = split_it.next() orelse {
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             };
 
             var temp_num_storage = try std.BoundedArray(u8, 100).init(0);
@@ -80,7 +80,7 @@ fn raceInfoPart2(allocator: std.mem.Allocator) !RaceInfo {
                 race_info.record = new_num;
             }
         } else {
-            return MyErrors.UnexpectedFormat;
+            return GeneralErrors.UnexpectedFormat;
         }
     }
     return race_info;
@@ -99,7 +99,7 @@ fn calculateAnswer(allocator: std.mem.Allocator) !u64 {
         }
     }
 
-    return final_answer orelse MyErrors.UnexpectedFormat;
+    return final_answer orelse GeneralErrors.UnexpectedFormat;
 }
 
 pub fn main() !void {

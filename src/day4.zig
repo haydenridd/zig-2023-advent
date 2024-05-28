@@ -1,7 +1,7 @@
 const std = @import("std");
 const helpers = @import("helpers");
 const FileLineReader = helpers.FileLineReader;
-const MyErrors = helpers.MyErrors;
+const GeneralErrors = helpers.GeneralErrors;
 
 fn numStrIntoOwnedSlice(allocator: std.mem.Allocator, num_str: []const u8) ![]usize {
     var num_it = std.mem.tokenizeAny(u8, num_str, " ");
@@ -22,21 +22,21 @@ fn calculateAnswer(allocator: std.mem.Allocator, line_reader: *FileLineReader) !
     while (line_reader.next()) |line| {
         var split_it = std.mem.splitSequence(u8, line, ": ");
         _ = split_it.next() orelse {
-            return MyErrors.UnexpectedFormat;
+            return GeneralErrors.UnexpectedFormat;
         };
         const both_cards = split_it.next() orelse {
-            return MyErrors.UnexpectedFormat;
+            return GeneralErrors.UnexpectedFormat;
         };
         split_it = std.mem.splitSequence(u8, both_cards, " | ");
         const winning_nums_str = split_it.next() orelse {
-            return MyErrors.UnexpectedFormat;
+            return GeneralErrors.UnexpectedFormat;
         };
 
         const winning_nums = try numStrIntoOwnedSlice(allocator, winning_nums_str);
         defer allocator.free(winning_nums);
 
         const nums_have_str = split_it.next() orelse {
-            return MyErrors.UnexpectedFormat;
+            return GeneralErrors.UnexpectedFormat;
         };
 
         const nums_have = try numStrIntoOwnedSlice(allocator, nums_have_str);

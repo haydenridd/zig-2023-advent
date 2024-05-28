@@ -1,7 +1,7 @@
 const std = @import("std");
 const helpers = @import("helpers");
 const FileLineReader = helpers.FileLineReader;
-const MyErrors = helpers.MyErrors;
+const GeneralErrors = helpers.GeneralErrors;
 
 const SeedIter = struct {
     curr: isize,
@@ -90,10 +90,10 @@ fn transformationStepFromReader(line_reader: *FileLineReader) ?TransformationSte
 fn seedRangesFromSeedLine(part2_method: bool, allocator: std.mem.Allocator, seeds_line: []const u8) ![]SeedRange {
     var seed_line_it = std.mem.splitSequence(u8, seeds_line, ": ");
     _ = seed_line_it.next() orelse {
-        return MyErrors.UnexpectedFormat;
+        return GeneralErrors.UnexpectedFormat;
     };
     const just_seeds = seed_line_it.next() orelse {
-        return MyErrors.UnexpectedFormat;
+        return GeneralErrors.UnexpectedFormat;
     };
 
     var ret_arr = std.ArrayList(SeedRange).init(allocator);
@@ -114,7 +114,7 @@ fn seedRangesFromSeedLine(part2_method: bool, allocator: std.mem.Allocator, seed
                 range = try std.fmt.parseInt(usize, val, 10);
             } else {
                 // Seeds should always come in pairs of two
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             }
             try ret_arr.append(SeedRange{ .start = start_seed, .end = start_seed + range - 1 });
         }
@@ -134,12 +134,12 @@ fn scanUntilString(line_reader: *FileLineReader, string: []const u8) !void {
             return;
         }
     }
-    return MyErrors.UnexpectedFormat;
+    return GeneralErrors.UnexpectedFormat;
 }
 
 fn calculateMinVal(part2_method: bool, allocator: std.mem.Allocator, line_reader: *FileLineReader) !usize {
     const seeds_line = line_reader.next() orelse {
-        return MyErrors.UnexpectedFormat;
+        return GeneralErrors.UnexpectedFormat;
     };
 
     const debug_print_pipeline = true;

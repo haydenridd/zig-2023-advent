@@ -1,7 +1,7 @@
 const std = @import("std");
 const helpers = @import("helpers");
 const FileLineReader = helpers.FileLineReader;
-const MyErrors = helpers.MyErrors;
+const GeneralErrors = helpers.GeneralErrors;
 
 const Coordinate = struct { x: usize, y: usize };
 const Direction = enum { N, E, S, W };
@@ -176,7 +176,7 @@ const Map = struct {
                 init_len = line.len;
             }
             if (init_len.? != line.len) {
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             }
             for (line, 0..) |char, x| {
                 if (char == 'S') {
@@ -207,22 +207,22 @@ const Map = struct {
             switch (direction) {
                 .N => {
                     // Bound sanity checks
-                    if (self.start.y == 0) return MyErrors.UnexpectedFormat;
+                    if (self.start.y == 0) return GeneralErrors.UnexpectedFormat;
                     try ret_coords.append(Coordinate{ .x = self.start.x, .y = self.start.y - 1 });
                 },
                 .E => {
                     // Bound sanity checks
-                    if (self.start.x == self.matrix[0].len - 1) return MyErrors.UnexpectedFormat;
+                    if (self.start.x == self.matrix[0].len - 1) return GeneralErrors.UnexpectedFormat;
                     try ret_coords.append(Coordinate{ .x = self.start.x + 1, .y = self.start.y });
                 },
                 .S => {
                     // Bound sanity checks
-                    if (self.start.y == self.matrix.len - 1) return MyErrors.UnexpectedFormat;
+                    if (self.start.y == self.matrix.len - 1) return GeneralErrors.UnexpectedFormat;
                     try ret_coords.append(Coordinate{ .x = self.start.x, .y = self.start.y + 1 });
                 },
                 .W => {
                     // Bound sanity checks
-                    if (self.start.x == 0) return MyErrors.UnexpectedFormat;
+                    if (self.start.x == 0) return GeneralErrors.UnexpectedFormat;
                     try ret_coords.append(Coordinate{ .x = self.start.x - 1, .y = self.start.y });
                 },
             }
@@ -231,7 +231,7 @@ const Map = struct {
     }
 };
 
-const PathFinderErrors = error{ MoreThanOneValidMove, NoValidMoves };
+const DaySpecificErrors = error{ MoreThanOneValidMove, NoValidMoves };
 
 const PathFinder = struct {
     allocator: std.mem.Allocator,
@@ -289,9 +289,9 @@ const PathFinder = struct {
     pub fn traverse(self: *PathFinder) !void {
         const possible_movements = try possibleMovementDirections(self.map_matrix, self.current, self.previous_dir);
         if (possible_movements.len > 1) {
-            return PathFinderErrors.MoreThanOneValidMove;
+            return DaySpecificErrors.MoreThanOneValidMove;
         } else if (possible_movements.len == 0) {
-            return PathFinderErrors.NoValidMoves;
+            return DaySpecificErrors.NoValidMoves;
         }
 
         const direction = possible_movements.slice()[0];
@@ -423,7 +423,7 @@ fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
             if (debug_print) std.debug.print("Moved {any} to {any}\n", .{ path_finder.previous_dir.?, path_finder.current });
         } else |err| {
             switch (err) {
-                PathFinderErrors.NoValidMoves => {},
+                DaySpecificErrors.NoValidMoves => {},
                 else => return err,
             }
         }

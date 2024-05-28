@@ -1,7 +1,7 @@
 const std = @import("std");
 const helpers = @import("helpers");
 const FileLineReader = helpers.FileLineReader;
-const MyErrors = helpers.MyErrors;
+const GeneralErrors = helpers.GeneralErrors;
 
 const HandType = enum(u8) { HighCard = 0, OnePair = 1, TwoPair = 2, ThreeOfAKind = 3, FullHouse = 4, FourOfAKind = 5, FiveOfAKind = 6 };
 
@@ -19,15 +19,15 @@ fn HandVariantForPart(comptime part: u8) type {
             var hand: Self = Self{ .cards = .{0} ** 5, .bid = 0, .hand_type = .HighCard };
             var slice_tok = std.mem.tokenizeAny(u8, slice, " ");
             const card_slice = slice_tok.next() orelse {
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             };
             if (card_slice.len != hand.cards.len) {
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             }
             std.mem.copyForwards(u8, &hand.cards, card_slice);
 
             const bid_slice = slice_tok.next() orelse {
-                return MyErrors.UnexpectedFormat;
+                return GeneralErrors.UnexpectedFormat;
             };
             hand.bid = try std.fmt.parseInt(u64, bid_slice, 10);
             hand.hand_type = try determineHand(hand.cards);
@@ -62,7 +62,7 @@ fn HandVariantForPart(comptime part: u8) type {
             // Sanitize
             for (cards) |c| {
                 if (std.mem.indexOfScalar(u8, VALID_RANKED_CARDS_PT1, c)) |_| {} else {
-                    return MyErrors.UnexpectedFormat;
+                    return GeneralErrors.UnexpectedFormat;
                 }
             }
 
@@ -122,7 +122,7 @@ fn HandVariantForPart(comptime part: u8) type {
                     return .HighCard;
                 },
                 else => {
-                    return MyErrors.UnexpectedFormat;
+                    return GeneralErrors.UnexpectedFormat;
                 },
             }
         }

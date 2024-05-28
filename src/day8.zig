@@ -1,7 +1,7 @@
 const std = @import("std");
 const helpers = @import("helpers");
 const FileLineReader = helpers.FileLineReader;
-const MyErrors = helpers.MyErrors;
+const GeneralErrors = helpers.GeneralErrors;
 
 const Direction = enum(u8) { Left = 'L', Right = 'R' };
 
@@ -82,9 +82,9 @@ fn Tree(comptime part2: bool) type {
             // First pass stores all Nodes unlinked + linking information
             while (file_line_reader.next()) |line| {
                 var node_it = std.mem.tokenizeAny(u8, line, " =(,)");
-                const main_node_name = node_it.next() orelse return MyErrors.UnexpectedFormat;
-                const left_node_name = node_it.next() orelse return MyErrors.UnexpectedFormat;
-                const right_node_name = node_it.next() orelse return MyErrors.UnexpectedFormat;
+                const main_node_name = node_it.next() orelse return GeneralErrors.UnexpectedFormat;
+                const left_node_name = node_it.next() orelse return GeneralErrors.UnexpectedFormat;
+                const right_node_name = node_it.next() orelse return GeneralErrors.UnexpectedFormat;
 
                 try linking_info.append(LinkingInfo{ .parent = main_node_name[0..3].*, .left = left_node_name[0..3].*, .right = right_node_name[0..3].* });
 
@@ -130,7 +130,7 @@ fn Tree(comptime part2: bool) type {
 fn calculateAnswerPart1(allocator: std.mem.Allocator) !u64 {
     var file_line_reader = try helpers.lineReaderFromAdventDay(8, allocator);
     defer file_line_reader.deinit();
-    const dir_line = file_line_reader.next() orelse return MyErrors.UnexpectedFormat;
+    const dir_line = file_line_reader.next() orelse return GeneralErrors.UnexpectedFormat;
     var dirs = std.ArrayList(Direction).init(allocator);
     defer dirs.deinit();
     for (dir_line) |dir| {
@@ -165,7 +165,7 @@ fn allTreesDone(trees: []const Tree(true)) bool {
 fn calculateAnswerPart2(allocator: std.mem.Allocator) !u128 {
     var file_line_reader = try helpers.lineReaderFromAdventDay(8, allocator);
     defer file_line_reader.deinit();
-    const dir_line = file_line_reader.next() orelse return MyErrors.UnexpectedFormat;
+    const dir_line = file_line_reader.next() orelse return GeneralErrors.UnexpectedFormat;
     var dirs = std.ArrayList(Direction).init(allocator);
     defer dirs.deinit();
     for (dir_line) |dir| {
