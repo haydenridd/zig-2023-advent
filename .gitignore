@@ -1,4 +1,4 @@
-zig-cache/
+.zig-cache/
 zig-out/
 /release/
 /debug/
@@ -6,3 +6,5 @@ zig-out/
 /build-*/
 /docgen_tmp/
 .vscode
+poop
+tracy

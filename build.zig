@@ -1,24 +1,13 @@
 const std = @import("std");
 
-// Although this function looks imperative, note that its job is to
-// declaratively construct a build graph that will be executed by an external
-// runner.
 pub fn build(b: *std.Build) void {
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{});
-
-    // Standard optimization options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
-    // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const helpers_mod = b.addModule("helpers", .{ .root_source_file = .{ .path = "helpers/helpers.zig" } });
+    const exe_options = b.addOptions();
+    exe_options.addOption(bool, "perf_compare", b.option(bool, "perf-compare", "Switch to compare different methods for performance improvements") orelse false);
+    const helpers_mod = b.addModule("helpers", .{ .root_source_file = b.path("helpers/helpers.zig") });
 
-    // Creates a step for unit testing. This only builds the test executable
-    // but does not run it.
     const helpers_test = b.addTest(.{
         .root_source_file = b.path("helpers/helpers.zig"),
         .target = target,
@@ -31,7 +20,7 @@ pub fn build(b: *std.Build) void {
 
     const overall_run_step = b.step("run", "Run all days!");
 
-    const max_day = 11;
+    const max_day = 12;
     inline for (1..max_day + 1) |day| {
         const day_name = std.fmt.comptimePrint("day{}", .{day});
         const day_path = b.path("src/" ++ day_name ++ ".zig");
@@ -77,6 +66,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         });
         exe_unit_tests.root_module.addImport("helpers", helpers_mod);
+        exe_unit_tests.root_module.addOptions("build_options", exe_options);
         const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
         // Similar to creating the run step earlier, this exposes a `test` step to
