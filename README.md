@@ -1,3 +1,5 @@
 # Advent 2023 - In Zig!
 
-TODO
+TODO:
+- day5 needs optimization
+- day11 needs optimization

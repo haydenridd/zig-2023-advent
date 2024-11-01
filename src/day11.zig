@@ -1,9 +1,12 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
-const DaySpecificErrors = error{NoPathFound};
 
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
+
+const DaySpecificErrors = error{NoPathFound};
 const UniverseMatrix = std.ArrayList(std.ArrayList(u8));
 
 const Expansions = struct {
@@ -195,10 +198,10 @@ fn manhattanDistance(pair: CoordPair) usize {
 }
 
 test "Example Input 1" {
-    var flr_input = try FileLineReader.init(std.testing.allocator, "test_inputs/day11_input_test1.txt");
+    var flr_input = try helpers.FixedBufferLineReader(20).init("test_inputs/day11_input_test1.txt");
     defer flr_input.deinit();
 
-    var universe_matrix = try flr_input.collect();
+    var universe_matrix = try flr_input.collect(std.testing.allocator);
     defer {
         for (universe_matrix.items) |row| {
             row.deinit();
@@ -244,9 +247,9 @@ fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
     var answer2: usize = 0;
 
     std.debug.print("Reading universe\n", .{});
-    var flr = try helpers.lineReaderFromAdventDay(11, allocator);
+    var flr = try helpers.FixedBufferLineReader(150).fromAdventDay(11);
     defer flr.deinit();
-    var universe_matrix = try flr.collect();
+    var universe_matrix = try flr.collect(allocator);
     defer {
         for (universe_matrix.items) |row| {
             row.deinit();
@@ -276,7 +279,7 @@ fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
         for (pairs) |pair| {
             sum_of_pairs += manhattanDistance(pair);
         }
-        if (exp_fct > 1) {
+        if (exp_fct > 2) {
             answer2 = sum_of_pairs;
         } else {
             answer1 = sum_of_pairs;
@@ -290,7 +293,7 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
     const answer = try calculateAnswer(alloc);
-    std.debug.print("Answer part 1: {d}\n", .{answer[0]});
-    std.debug.print("Answer part 2: {?}\n", .{answer[1]});
+    std.log.info("Answer part 1: {d}", .{answer[0]});
+    std.log.info("Answer part 2: {?}", .{answer[1]});
     std.debug.assert(!gpa.detectLeaks());
 }

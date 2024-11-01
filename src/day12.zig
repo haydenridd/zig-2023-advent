@@ -1,15 +1,15 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
-const DaySpecificErrors = error{Something};
-const assert = std.debug.assert;
-
-const build_options = @import("build_options");
 
 pub const std_options: std.Options = .{
     .log_level = .info,
 };
+
+const DaySpecificErrors = error{Something};
+const assert = std.debug.assert;
+
+const build_options = @import("build_options");
 
 const SpringData = struct {
     pub const SpringArr = std.BoundedArray(u8, 120);
@@ -186,7 +186,7 @@ const cache_method = struct {
         var answer1: usize = 0;
         var answer2: usize = 0;
 
-        var file_line_reader = try helpers.lineReaderFromAdventDay(12, allocator);
+        var file_line_reader = try helpers.FileLineReader.fromAdventDay(12, allocator);
         defer file_line_reader.deinit();
         while (file_line_reader.next()) |line| {
             const spring_data = try parseLine(line, false);
@@ -316,11 +316,11 @@ const iterative_method = struct {
         try std.testing.expectEqual(506250, findPossibilities(data.spring_str.slice(), data.group_sizes.slice()));
     }
 
-    fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
+    fn calculateAnswer() ![2]usize {
         var answer1: usize = 0;
         var answer2: usize = 0;
 
-        var file_line_reader = try helpers.lineReaderFromAdventDay(12, allocator);
+        var file_line_reader = try helpers.FixedBufferLineReader(60).fromAdventDay(12);
         defer file_line_reader.deinit();
         while (file_line_reader.next()) |line| {
             const spring_data = try parseLine(line, false);
@@ -335,13 +335,9 @@ const iterative_method = struct {
 };
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const alloc = gpa.allocator();
-    const answer = try iterative_method.calculateAnswer(alloc);
-
+    const answer = try iterative_method.calculateAnswer();
     std.log.info("Answer part 1: {d}", .{answer[0]});
     std.log.info("Answer part 2: {?}", .{answer[1]});
-    std.debug.assert(!gpa.detectLeaks());
 }
 
 comptime {

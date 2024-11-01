@@ -1,7 +1,10 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
 
 const SeedIter = struct {
     curr: isize,
@@ -56,7 +59,9 @@ const TransformationStep = struct {
     }
 };
 
-fn transformationStepFromReader(line_reader: *FileLineReader) ?TransformationStep {
+const LineReader = helpers.FixedBufferLineReader(300);
+
+fn transformationStepFromReader(line_reader: *LineReader) ?TransformationStep {
     if (line_reader.next()) |line| {
         if (std.mem.eql(u8, "", line)) {
             return null;
@@ -128,7 +133,7 @@ fn seedRangesFromSeedLine(part2_method: bool, allocator: std.mem.Allocator, seed
     return try ret_arr.toOwnedSlice();
 }
 
-fn scanUntilString(line_reader: *FileLineReader, string: []const u8) !void {
+fn scanUntilString(line_reader: *LineReader, string: []const u8) !void {
     while (line_reader.next()) |line| {
         if (std.mem.indexOf(u8, line, string)) |_| {
             return;
@@ -137,12 +142,15 @@ fn scanUntilString(line_reader: *FileLineReader, string: []const u8) !void {
     return GeneralErrors.UnexpectedFormat;
 }
 
-fn calculateMinVal(part2_method: bool, allocator: std.mem.Allocator, line_reader: *FileLineReader) !usize {
-    const seeds_line = line_reader.next() orelse {
+fn calculateMinVal(part2_method: bool, allocator: std.mem.Allocator) !usize {
+    var file_line_reader = try LineReader.fromAdventDay(5);
+    defer file_line_reader.deinit();
+
+    const seeds_line = file_line_reader.next() orelse {
         return GeneralErrors.UnexpectedFormat;
     };
 
-    const debug_print_pipeline = true;
+    const debug_print_pipeline = false;
 
     const seed_arr = try seedRangesFromSeedLine(part2_method, allocator, seeds_line);
     defer allocator.free(seed_arr);
@@ -158,9 +166,9 @@ fn calculateMinVal(part2_method: bool, allocator: std.mem.Allocator, line_reader
     }
 
     inline for (map_headers, 0..) |map_hdr, pipeline_idx| {
-        try scanUntilString(line_reader, map_hdr);
+        try scanUntilString(&file_line_reader, map_hdr);
 
-        while (transformationStepFromReader(line_reader)) |step| {
+        while (transformationStepFromReader(&file_line_reader)) |step| {
             try transformation_pipeline[pipeline_idx].append(step);
         }
     }
@@ -173,7 +181,7 @@ fn calculateMinVal(part2_method: bool, allocator: std.mem.Allocator, line_reader
         total_seeds += seed_range.len();
     }
 
-    std.debug.print("Total number of seeds: {d}\n", .{total_seeds});
+    std.log.debug("Total number of seeds: {d}\n", .{total_seeds});
 
     var seed_counter: usize = 0;
     var prev_pct_done: usize = 0;
@@ -226,11 +234,9 @@ pub fn main() !void {
 
     const method_arr = [_]bool{ false, true };
     for (method_arr) |part2_method| {
-        var file_line_reader = try helpers.lineReaderFromAdventDay(5, alloc);
-        defer file_line_reader.deinit();
-        const min_val = try calculateMinVal(part2_method, alloc, &file_line_reader);
+        const min_val = try calculateMinVal(part2_method, alloc);
         const part: usize = if (part2_method) 2 else 1;
-        std.debug.print("Minval: part{d}: {d}\n", .{ part, min_val });
+        std.log.info("Minval: part{d}: {d}", .{ part, min_val });
     }
 
     std.debug.assert(!gpa.detectLeaks());

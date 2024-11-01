@@ -1,7 +1,10 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
 
 const Direction = enum(u8) { Left = 'L', Right = 'R' };
 
@@ -23,8 +26,10 @@ const Node = struct {
     }
 };
 
+const LineReader = helpers.FixedBufferLineReader(300);
+
 fn generateTreeFromFile(comptime part2: bool, allocator: std.mem.Allocator) !Tree(part2) {
-    var file_line_reader = try helpers.lineReaderFromAdventDay(8, allocator);
+    var file_line_reader = try LineReader.fromAdventDay(8);
     defer file_line_reader.deinit();
     file_line_reader.skip(2);
     return try Tree(part2).initFromLineReader(allocator, &file_line_reader);
@@ -68,7 +73,7 @@ fn Tree(comptime part2: bool) type {
             return null;
         }
 
-        pub fn initFromLineReader(allocator: std.mem.Allocator, file_line_reader: *FileLineReader) !Self {
+        pub fn initFromLineReader(allocator: std.mem.Allocator, file_line_reader: *LineReader) !Self {
 
             // Assumes directions have already been scooped off!
             var node_storage = std.ArrayList(Node).init(allocator);
@@ -128,7 +133,7 @@ fn Tree(comptime part2: bool) type {
 }
 
 fn calculateAnswerPart1(allocator: std.mem.Allocator) !u64 {
-    var file_line_reader = try helpers.lineReaderFromAdventDay(8, allocator);
+    var file_line_reader = try LineReader.fromAdventDay(8);
     defer file_line_reader.deinit();
     const dir_line = file_line_reader.next() orelse return GeneralErrors.UnexpectedFormat;
     var dirs = std.ArrayList(Direction).init(allocator);
@@ -163,7 +168,7 @@ fn allTreesDone(trees: []const Tree(true)) bool {
 }
 
 fn calculateAnswerPart2(allocator: std.mem.Allocator) !u128 {
-    var file_line_reader = try helpers.lineReaderFromAdventDay(8, allocator);
+    var file_line_reader = try LineReader.fromAdventDay(8);
     defer file_line_reader.deinit();
     const dir_line = file_line_reader.next() orelse return GeneralErrors.UnexpectedFormat;
     var dirs = std.ArrayList(Direction).init(allocator);
@@ -210,8 +215,8 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
     const answer_part1 = try calculateAnswerPart1(alloc);
-    std.debug.print("Answer Part 1: {d}\n", .{answer_part1});
+    std.log.info("Answer Part 1: {d}", .{answer_part1});
     const answer_part2 = try calculateAnswerPart2(alloc);
-    std.debug.print("Answer Part 2: {d}\n", .{answer_part2});
+    std.log.info("Answer Part 2: {d}\n", .{answer_part2});
     std.debug.assert(!gpa.detectLeaks());
 }

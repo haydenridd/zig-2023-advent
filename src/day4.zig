@@ -1,7 +1,10 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
 
 fn numStrIntoOwnedSlice(allocator: std.mem.Allocator, num_str: []const u8) ![]usize {
     var num_it = std.mem.tokenizeAny(u8, num_str, " ");
@@ -14,12 +17,15 @@ fn numStrIntoOwnedSlice(allocator: std.mem.Allocator, num_str: []const u8) ![]us
     return try output.toOwnedSlice();
 }
 
-fn calculateAnswer(allocator: std.mem.Allocator, line_reader: *FileLineReader) ![2]usize {
+fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
+    var file_line_reader = try helpers.FixedBufferLineReader(130).fromAdventDay(4);
+    defer file_line_reader.deinit();
+
     var sum_part1: usize = 0;
     var winning_counts = std.ArrayList(usize).init(allocator);
     defer winning_counts.deinit();
 
-    while (line_reader.next()) |line| {
+    while (file_line_reader.next()) |line| {
         var split_it = std.mem.splitSequence(u8, line, ": ");
         _ = split_it.next() orelse {
             return GeneralErrors.UnexpectedFormat;
@@ -86,9 +92,7 @@ test "Process cards" {
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
-    var file_line_reader = try helpers.lineReaderFromAdventDay(4, alloc);
-    defer file_line_reader.deinit();
-    const answer = try calculateAnswer(alloc, &file_line_reader);
-    std.debug.print("Answer - [Part1: {d}, Part2: {d}]\n", .{ answer[0], answer[1] });
+    const answer = try calculateAnswer(alloc);
+    std.log.info("Answer - [Part1: {d}, Part2: {d}]\n", .{ answer[0], answer[1] });
     std.debug.assert(!gpa.detectLeaks());
 }

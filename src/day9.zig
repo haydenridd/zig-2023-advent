@@ -1,11 +1,15 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
-const GeneralErrors = helpers.GeneralErrors;
 
-fn nextDataVector(line_reader: *FileLineReader) ?[]i64 {
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
+
+const LineReader = helpers.FixedBufferLineReader(200);
+
+fn nextDataVector(line_reader: *LineReader, allocator: std.mem.Allocator) ?[]i64 {
     const ln = line_reader.next() orelse return null;
-    var ret_arr = std.ArrayList(i64).init(line_reader.allocator);
+    var ret_arr = std.ArrayList(i64).init(allocator);
     defer ret_arr.deinit();
     var nm_tok = std.mem.tokenizeAny(u8, ln, " ");
     while (nm_tok.next()) |num_str| {
@@ -18,12 +22,12 @@ fn calculateAnswer(allocator: std.mem.Allocator) ![2]i64 {
     const debug_print = false;
     const limit_output = false;
 
-    var file_line_reader = try helpers.lineReaderFromAdventDay(9, allocator);
+    var file_line_reader = try LineReader.fromAdventDay(9);
     defer file_line_reader.deinit();
     var answer: i64 = 0;
     var answer2: i64 = 0;
     var tmp: usize = 0;
-    while (nextDataVector(&file_line_reader)) |data_vec| {
+    while (nextDataVector(&file_line_reader, allocator)) |data_vec| {
         defer allocator.free(data_vec);
 
         var init_values = try std.BoundedArray(i64, 50).init(0);

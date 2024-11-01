@@ -1,7 +1,10 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
 
 const Coordinate = struct { x: usize, y: usize };
 const Direction = enum { N, E, S, W };
@@ -161,7 +164,7 @@ const Map = struct {
     matrix: [][]const u8,
 
     pub fn initFromPuzzleInput(allocator: std.mem.Allocator) !Map {
-        var file_line_reader = try helpers.lineReaderFromAdventDay(10, allocator);
+        var file_line_reader = try helpers.FixedBufferLineReader(150).fromAdventDay(10);
         defer file_line_reader.deinit();
         var init_len: ?usize = null;
 
@@ -447,7 +450,7 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
     const answer = try calculateAnswer(alloc);
-    std.debug.print("Answer part 1: {d}\n", .{answer[0]});
-    std.debug.print("Answer part 2: {?}\n", .{answer[1]});
+    std.log.info("Answer part 1: {d}", .{answer[0]});
+    std.log.info("Answer part 2: {?}", .{answer[1]});
     std.debug.assert(!gpa.detectLeaks());
 }

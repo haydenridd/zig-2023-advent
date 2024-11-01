@@ -1,7 +1,10 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
 
 fn isSymbol(byte: u8) bool {
     return !std.ascii.isDigit(byte) and (byte != '.');
@@ -175,7 +178,10 @@ test "isGear" {
     try std.testing.expectEqual(null, isGear(1, "1.1.......", ".*........", "10........"));
 }
 
-fn calculateAnswer(line_reader: *FileLineReader) ![2]usize {
+fn calculateAnswer(allocator: std.mem.Allocator) ![2]usize {
+    var file_line_reader = try helpers.FixedBufferLineReader(150).fromAdventDay(3);
+    defer file_line_reader.deinit();
+
     var sum_part1: usize = 0;
     var sum_part2: usize = 0;
     var three_lines: [3]?[]const u8 = .{ null, null, null };
@@ -183,7 +189,7 @@ fn calculateAnswer(line_reader: *FileLineReader) ![2]usize {
     defer {
         for (0..three_lines.len) |i| {
             if (three_lines[i]) |_| {
-                line_reader.allocator.free(three_lines[i].?);
+                allocator.free(three_lines[i].?);
             }
         }
     }
@@ -192,13 +198,13 @@ fn calculateAnswer(line_reader: *FileLineReader) ![2]usize {
 
         // Shift in new line, discard + free end line
         if (three_lines[0]) |_| {
-            line_reader.allocator.free(three_lines[0].?);
+            allocator.free(three_lines[0].?);
         }
         three_lines[0] = three_lines[1];
         three_lines[1] = three_lines[2];
         three_lines[2] = v: {
-            var v = std.ArrayList(u8).init(line_reader.allocator);
-            try v.appendSlice(line_reader.next() orelse break :v null);
+            var v = std.ArrayList(u8).init(allocator);
+            try v.appendSlice(file_line_reader.next() orelse break :v null);
             break :v try v.toOwnedSlice();
         };
 
@@ -237,9 +243,7 @@ fn calculateAnswer(line_reader: *FileLineReader) ![2]usize {
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
-    var file_line_reader = try helpers.lineReaderFromAdventDay(3, alloc);
-    defer file_line_reader.deinit();
-    const answer = try calculateAnswer(&file_line_reader);
-    std.debug.print("Answer - [Part1: {d}, Part2: {d}]\n", .{ answer[0], answer[1] });
+    const answer = try calculateAnswer(alloc);
+    std.log.info("Answer - [Part1: {d}, Part2: {d}]\n", .{ answer[0], answer[1] });
     std.debug.assert(!gpa.detectLeaks());
 }

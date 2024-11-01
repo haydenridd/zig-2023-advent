@@ -1,7 +1,10 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
 
 const RaceInfo = struct {
     time: u64,
@@ -22,8 +25,8 @@ const RaceInfo = struct {
     }
 };
 
-fn raceInfo(allocator: std.mem.Allocator) ![4]RaceInfo {
-    var file_line_reader = try helpers.lineReaderFromAdventDay(6, allocator);
+fn raceInfo() ![4]RaceInfo {
+    var file_line_reader = try helpers.FixedBufferLineReader(50).fromAdventDay(6);
     defer file_line_reader.deinit();
 
     var race_info_arr: [4]RaceInfo = undefined;
@@ -53,8 +56,8 @@ fn raceInfo(allocator: std.mem.Allocator) ![4]RaceInfo {
     return race_info_arr;
 }
 
-fn raceInfoPart2(allocator: std.mem.Allocator) !RaceInfo {
-    var file_line_reader = try helpers.lineReaderFromAdventDay(6, allocator);
+fn raceInfoPart2() !RaceInfo {
+    var file_line_reader = try helpers.FixedBufferLineReader(50).fromAdventDay(6);
     defer file_line_reader.deinit();
 
     var race_info = RaceInfo{ .record = 0, .time = 0 };
@@ -86,8 +89,8 @@ fn raceInfoPart2(allocator: std.mem.Allocator) !RaceInfo {
     return race_info;
 }
 
-fn calculateAnswer(allocator: std.mem.Allocator) !u64 {
-    const race_info_arr = try raceInfo(allocator);
+fn calculateAnswer() !u64 {
+    const race_info_arr = try raceInfo();
     var final_answer: ?u64 = null;
 
     for (race_info_arr) |info| {
@@ -103,12 +106,8 @@ fn calculateAnswer(allocator: std.mem.Allocator) !u64 {
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const alloc = gpa.allocator();
-    const answer = try calculateAnswer(alloc);
-    std.debug.print("Answer part 1: {d}\n", .{answer});
-    const diff_ri = try raceInfoPart2(alloc);
-    std.debug.print("Answer part 2: {d}\n", .{diff_ri.winPossibilities()});
-
-    std.debug.assert(!gpa.detectLeaks());
+    const answer = try calculateAnswer();
+    std.log.info("Answer part 1: {d}", .{answer});
+    const diff_ri = try raceInfoPart2();
+    std.log.info("Answer part 2: {d}", .{diff_ri.winPossibilities()});
 }

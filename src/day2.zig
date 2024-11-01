@@ -1,7 +1,11 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
+
 const CubeDrawing = struct {
     red: usize,
     green: usize,
@@ -91,11 +95,14 @@ test "Game parsing from line" {
     try std.testing.expectEqual(5, game2.drawings[1].blue);
 }
 
-fn calculateAnswer(line_reader: *FileLineReader, game_limits_for_part1: CubeDrawing) ![2]usize {
+fn calculateAnswer(allocator: std.mem.Allocator, game_limits_for_part1: CubeDrawing) ![2]usize {
     var answer_part1: usize = 0;
     var answer_part2: usize = 0;
-    while (line_reader.next()) |line| {
-        const game = try Game.initFromLine(line_reader.allocator, line);
+    var file_line_reader = try helpers.FixedBufferLineReader(300).fromAdventDay(2);
+    defer file_line_reader.deinit();
+
+    while (file_line_reader.next()) |line| {
+        const game = try Game.initFromLine(allocator, line);
         defer game.deinit();
 
         var max_seen = CubeDrawing{ .red = 0, .green = 0, .blue = 0 };
@@ -114,15 +121,14 @@ fn calculateAnswer(line_reader: *FileLineReader, game_limits_for_part1: CubeDraw
         if (game_possible) answer_part1 += game.id;
         answer_part2 += max_seen.red * max_seen.green * max_seen.blue;
     }
+
     return .{ answer_part1, answer_part2 };
 }
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
-    var file_line_reader = try helpers.lineReaderFromAdventDay(2, alloc);
-    defer file_line_reader.deinit();
-    const answer = try calculateAnswer(&file_line_reader, .{ .red = 12, .green = 13, .blue = 14 });
-    std.debug.print("Answer - [Part1: {d}, Part2: {d}]\n", .{ answer[0], answer[1] });
+    const answer = try calculateAnswer(alloc, .{ .red = 12, .green = 13, .blue = 14 });
+    std.log.info("Answer - [Part1: {d}, Part2: {d}]\n", .{ answer[0], answer[1] });
     std.debug.assert(!gpa.detectLeaks());
 }

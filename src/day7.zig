@@ -1,7 +1,10 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
 const GeneralErrors = helpers.GeneralErrors;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
 
 const HandType = enum(u8) { HighCard = 0, OnePair = 1, TwoPair = 2, ThreeOfAKind = 3, FullHouse = 4, FourOfAKind = 5, FiveOfAKind = 6 };
 
@@ -192,7 +195,10 @@ test "Hand sorting" {
     try std.testing.expectEqual(try HandPt2.fromSlice("KTJJT 220"), hand_arr2[4]);
 }
 
-fn calculateAnswer(HandVariant: type, allocator: std.mem.Allocator, file_line_reader: *FileLineReader) !u64 {
+fn calculateAnswer(HandVariant: type, allocator: std.mem.Allocator) !u64 {
+    var file_line_reader = try helpers.FixedBufferLineReader(20).fromAdventDay(7);
+    defer file_line_reader.deinit();
+
     var hand_arr = std.ArrayList(HandVariant).init(allocator);
     defer hand_arr.deinit();
     while (file_line_reader.next()) |line| {
@@ -204,9 +210,9 @@ fn calculateAnswer(HandVariant: type, allocator: std.mem.Allocator, file_line_re
     var answer: u64 = 0;
     for (hand_slice, 1..) |item, rank| {
         answer += rank * item.bid;
-        if (HandVariant == HandVariantForPart(2)) {
-            std.debug.print("Hand: {any}\n", .{item});
-        }
+        // if (HandVariant == HandVariantForPart(2)) {
+        //     std.debug.print("Hand: {any}\n", .{item});
+        // }
     }
     return answer;
 }
@@ -216,10 +222,8 @@ pub fn main() !void {
     const alloc = gpa.allocator();
 
     inline for (1..3) |part| {
-        var file_line_reader = try helpers.lineReaderFromAdventDay(7, alloc);
-        defer file_line_reader.deinit();
-        const answer = try calculateAnswer(HandVariantForPart(part), alloc, &file_line_reader);
-        std.debug.print("Answer part {d}: {d}\n", .{ part, answer });
+        const answer = try calculateAnswer(HandVariantForPart(part), alloc);
+        std.log.info("Answer part {d}: {d}", .{ part, answer });
     }
 
     std.debug.assert(!gpa.detectLeaks());

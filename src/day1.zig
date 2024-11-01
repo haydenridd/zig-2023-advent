@@ -1,6 +1,10 @@
 const std = @import("std");
 const helpers = @import("helpers");
-const FileLineReader = helpers.FileLineReader;
+
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
+
 const number_strings = .{ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" };
 
 fn startsWithWordReprOfDigit(str: []const u8) ?u8 {
@@ -31,7 +35,9 @@ fn decodeLineToTwoDigitNumber(line: []const u8, comptime part2_condition: bool) 
     return line_sum.? + last_valid_digit;
 }
 
-fn calculateAnswer(file_line_reader: *FileLineReader) [2]usize {
+fn calculateAnswer() ![2]usize {
+    var file_line_reader = try helpers.FixedBufferLineReader(100).fromAdventDay(1);
+    defer file_line_reader.deinit();
     var total_sum_part1: usize = 0;
     var total_sum_part2: usize = 0;
     while (file_line_reader.next()) |line| {
@@ -42,13 +48,8 @@ fn calculateAnswer(file_line_reader: *FileLineReader) [2]usize {
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const alloc = gpa.allocator();
-    var file_line_reader = try helpers.lineReaderFromAdventDay(1, alloc);
-    defer file_line_reader.deinit();
-    const answer = calculateAnswer(&file_line_reader);
-    std.debug.print("Answer - [Part1: {d}, Part2: {d}]\n", .{ answer[0], answer[1] });
-    std.debug.assert(!gpa.detectLeaks());
+    const answer = try calculateAnswer();
+    std.log.info("Answer - [Part1: {d}, Part2: {d}]\n", .{ answer[0], answer[1] });
 }
 
 test "Digit parsing" {
