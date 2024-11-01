@@ -87,6 +87,10 @@ pub fn FixedBufferLineReader(buffer_size: usize) type {
             return Self.init("./inputs/" ++ std.fmt.comptimePrint("day{}", .{day}) ++ "_input.txt");
         }
 
+        pub fn fromTestInput(comptime day: usize) !Self {
+            return Self.init("./test_inputs/" ++ std.fmt.comptimePrint("day{}", .{day}) ++ "_input.txt");
+        }
+
         pub fn init(path: []const u8) !Self {
             return Self{ .current_line = try BufferArray.init(0), .file = try std.fs.cwd().openFile(path, .{}) };
         }

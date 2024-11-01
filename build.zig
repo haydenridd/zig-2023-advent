@@ -20,7 +20,7 @@ pub fn build(b: *std.Build) void {
 
     const overall_run_step = b.step("run", "Run all days!");
 
-    const max_day = 12;
+    const max_day = 13;
     inline for (1..max_day + 1) |day| {
         const day_name = std.fmt.comptimePrint("day{}", .{day});
         const day_path = b.path("src/" ++ day_name ++ ".zig");
