@@ -77,9 +77,17 @@ pub const FileLineReader = struct {
 };
 
 pub fn FixedBufferLineReader(buffer_size: usize) type {
+    return FixedBufferDelimitedReader('\n', buffer_size);
+}
+
+pub fn FixedBufferCSVReader(buffer_size: usize) type {
+    return FixedBufferDelimitedReader(',', buffer_size);
+}
+
+pub fn FixedBufferDelimitedReader(delim: u8, buffer_size: usize) type {
     return struct {
         const BufferArray = std.BoundedArray(u8, buffer_size);
-        const Self = FixedBufferLineReader(buffer_size);
+        const Self = @This();
         current_line: BufferArray,
         file: File,
 
@@ -101,7 +109,7 @@ pub fn FixedBufferLineReader(buffer_size: usize) type {
 
         pub fn next(self: *Self) ?[]const u8 {
             self.current_line.resize(0) catch unreachable;
-            self.file.reader().streamUntilDelimiter(self.current_line.writer(), '\n', null) catch |err| switch (err) {
+            self.file.reader().streamUntilDelimiter(self.current_line.writer(), delim, null) catch |err| switch (err) {
                 error.EndOfStream => return null,
                 else => unreachable,
             };
@@ -125,18 +133,29 @@ pub fn FixedBufferLineReader(buffer_size: usize) type {
             }
             return ret_arr;
         }
-
-        test "Read Lines Iteratively" {
-            var file_reader = try Self.init("test_inputs/test_file.txt");
-            defer file_reader.deinit();
-
-            var i: usize = 0;
-            const expected_test_contents = [_][]const u8{ "hello", "from", "test", "file" };
-            while (file_reader.next()) |line| : (i += 1) {
-                try std.testing.expectEqualStrings(expected_test_contents[i], line);
-            }
-        }
     };
+}
+
+test "Read Lines Iteratively" {
+    var file_reader = try FixedBufferLineReader(100).init("test_inputs/test_file.txt");
+    defer file_reader.deinit();
+
+    var i: usize = 0;
+    const expected_test_contents = [_][]const u8{ "hello", "from", "test", "file" };
+    while (file_reader.next()) |line| : (i += 1) {
+        try std.testing.expectEqualStrings(expected_test_contents[i], line);
+    }
+}
+
+test "Read CSV Iteratively" {
+    var file_reader = try FixedBufferCSVReader(100).init("test_inputs/test_file.txt");
+    defer file_reader.deinit();
+
+    var i: usize = 0;
+    const expected_test_contents = [_][]const u8{ "hello", "from", "test", "file" };
+    while (file_reader.next()) |line| : (i += 1) {
+        try std.testing.expectEqualStrings(expected_test_contents[i], line);
+    }
 }
 
 pub fn LineCollector(max_line_width: usize, max_num_lines: usize) type {
@@ -165,6 +184,88 @@ pub fn LineCollector(max_line_width: usize, max_num_lines: usize) type {
             return collectInternal(advent_day, true);
         }
     };
+}
+
+pub fn NewLineArray(max_line_width: usize, max_num_lines: usize) type {
+    return struct {
+        _internal_buffer: OverallBuffer,
+        _outer_slice_mem: [max_num_lines][]u8,
+
+        const Self = @This();
+        pub const BufferPerLine = std.BoundedArray(u8, max_line_width);
+        pub const OverallBuffer = std.BoundedArray(BufferPerLine, max_num_lines);
+
+        fn collectInternal(comptime advent_day: usize, comptime use_test: bool) Self {
+            var line_reader = if (use_test) FixedBufferLineReader(max_line_width).fromTestInput(advent_day) catch unreachable else FixedBufferLineReader(max_line_width).fromAdventDay(advent_day) catch unreachable;
+            defer line_reader.deinit();
+
+            var ret: Self = undefined;
+
+            ret._internal_buffer = OverallBuffer.init(0) catch unreachable;
+
+            var idx: usize = 0;
+            while (line_reader.next()) |line| : (idx += 1) {
+                const item = ret._internal_buffer.addOne() catch unreachable;
+                item.* = BufferPerLine.init(0) catch unreachable;
+                item.*.appendSlice(line) catch unreachable;
+            }
+
+            return ret;
+        }
+
+        pub fn fromAdventDay(comptime advent_day: usize) Self {
+            return collectInternal(advent_day, false);
+        }
+
+        pub fn fromTestInput(comptime advent_day: usize) Self {
+            return collectInternal(advent_day, true);
+        }
+
+        pub fn slice(self: *Self) []const []u8 {
+            for (self._internal_buffer.slice(), 0..) |*itm, idx| {
+                self._outer_slice_mem[idx] = itm.*.slice();
+            }
+            return self._outer_slice_mem[0..self._internal_buffer.len];
+        }
+    };
+}
+
+fn additionalLayer(slice: []const []u8) !void {
+    const expected_slice: []const []const u8 = &.{
+        "X....#....",
+        "O.OO#....#",
+        ".....##...",
+        "OO.#X....O",
+        ".O.....O#.",
+        "O.#..O.#.#",
+        "..O..#O..O",
+        ".......O..",
+        "#....###..",
+        "#OO..#...X",
+    };
+    slice[0][0] = 'X';
+    slice[3][4] = 'X';
+    slice[9][9] = 'X';
+    try std.testing.expectEqualDeep(expected_slice, slice);
+}
+
+test "NewLineArray" {
+    const expected_slice: []const []const u8 = &.{
+        "O....#....",
+        "O.OO#....#",
+        ".....##...",
+        "OO.#O....O",
+        ".O.....O#.",
+        "O.#..O.#.#",
+        "..O..#O..O",
+        ".......O..",
+        "#....###..",
+        "#OO..#....",
+    };
+
+    var nla = NewLineArray(100, 100).fromTestInput(14);
+    try std.testing.expectEqualDeep(expected_slice, nla.slice());
+    try additionalLayer(nla.slice());
 }
 
 comptime {
