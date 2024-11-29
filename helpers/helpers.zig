@@ -139,6 +139,34 @@ pub fn FixedBufferLineReader(buffer_size: usize) type {
     };
 }
 
+pub fn LineCollector(max_line_width: usize, max_num_lines: usize) type {
+    return struct {
+        pub const LineBuffer = std.BoundedArray(u8, max_line_width);
+        pub const LineArray = std.BoundedArray(LineBuffer, max_num_lines);
+
+        fn collectInternal(comptime advent_day: usize, comptime use_test: bool) LineArray {
+            var line_reader = if (use_test) FixedBufferLineReader(max_line_width).fromTestInput(advent_day) catch unreachable else FixedBufferLineReader(max_line_width).fromAdventDay(advent_day) catch unreachable;
+            defer line_reader.deinit();
+
+            var ret = LineArray.init(0) catch unreachable;
+            while (line_reader.next()) |line| {
+                const item = ret.addOne() catch unreachable;
+                item.* = LineBuffer.init(0) catch unreachable;
+                item.*.appendSlice(line) catch unreachable;
+            }
+            return ret;
+        }
+
+        pub fn collectFromAdventDay(comptime advent_day: usize) LineArray {
+            return collectInternal(advent_day, false);
+        }
+
+        pub fn collectFromTestInput(comptime advent_day: usize) LineArray {
+            return collectInternal(advent_day, true);
+        }
+    };
+}
+
 comptime {
     std.testing.refAllDecls(FileLineReader);
     std.testing.refAllDecls(FixedBufferLineReader(100));
